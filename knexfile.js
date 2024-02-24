@@ -5,9 +5,11 @@
  */
 module.exports = {
   development: {
-    client: "sqlite3",
+    client: "postgresql",
     connection: {
-      filename: "./db/completionist.db3",
+      database: "verceldb",
+      user: process?.env?.POSTGRES_USER,
+      password: process?.env?.POSTGRES_PASSWORD,
     },
     migrations: {
       directory: "./db/migrations",
@@ -17,6 +19,20 @@ module.exports = {
     },
     useNullAsDefault: true,
   },
+  // module.exports = {
+  // development: {
+  //   client: "sqlite3",
+  //   connection: {
+  //     filename: "./db/completionist.db3",
+  //   },
+  //   migrations: {
+  //     directory: "./db/migrations",
+  //   },
+  //   seeds: {
+  //     directory: "./api/seeds",
+  //   },
+  //   useNullAsDefault: true,
+  // },
 
   // staging: {
   //   client: 'postgresql',

@@ -7,7 +7,14 @@ const db = require("./db/dbConfig");
 
 const server = express();
 server.use(bodyParser.json({ limit: "350mb" }));
-server.use(cors());
+server.use(
+  cors({
+    origin: "*",
+    methods: "*",
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 server.use(helmet());
 server.use(express.json());
 

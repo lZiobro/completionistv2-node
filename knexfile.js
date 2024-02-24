@@ -5,11 +5,13 @@
  */
 module.exports = {
   development: {
-    client: "postgresql",
+    client: "pg",
     connection: {
-      database: "verceldb",
-      user: process?.env?.POSTGRES_USER,
-      password: process?.env?.POSTGRES_PASSWORD,
+      host: process.env.POSTGRES_HOST,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      database: process.env.POSTGRES_DATABASE,
+      ssl: { rejectUnauthorized: false },
     },
     migrations: {
       directory: "./db/migrations",

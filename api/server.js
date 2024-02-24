@@ -3,7 +3,6 @@ const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
 
-const testData = require("./beatmapsetsWithDiffsTestData");
 const db = require("../db/dbConfig");
 
 const server = express();
@@ -19,60 +18,6 @@ server.get("/", (req, resp) => {
 server.get("/login", (req, resp) => {
   //try to login the user
 });
-
-// function insertOrUpdate(tableName, entities) {
-//   return db.transaction(async (trx) => {
-//     let queries = entities.map((tuple) =>
-//       trx
-//         .raw(
-//           util.format(
-//             "%s ON CONFLICT (id) DO UPDATE SET %s",
-//             trx(tableName).insert(tuple).toString().toString(),
-//             trx(tableName)
-//               .update(tuple)
-//               .whereRaw(`'${tableName}'.id = '${tuple.id}'`)
-//               .toString()
-//               .replace(/^update\s.*\sset\s/i, "")
-//           )
-//         )
-//         .transacting(trx)
-//     );
-//     return Promise.all(queries).then(trx.commit).catch(trx.rollback);
-//   });
-// }
-
-// server.get("/getBeatmapsetsForYear", async (req, resp) => {
-//   //try to login the user
-//   try {
-//     const beatmapsets = await db("beatmapsets")
-//       .select()
-//       .where(
-//         "ranked_date",
-//         ">=",
-//         `${req.query.year ?? "2000"}-01-01T00:00:00Z"`
-//       )
-//       .where(
-//         "ranked_date",
-//         "<",
-//         `${(
-//           parseInt(req.query.year ?? "2100") + 1
-//         ).toString()}-01-01T00:00:00Z"`
-//       );
-
-//     for await (const beatmapset of beatmapsets) {
-//       const bms = await db("beatmaps")
-//         .select()
-//         .where("beatmapset_id", "=", beatmapset.id);
-//       // .where("mode", "=", req.query.gamemode ?? "osu");
-//       beatmapset.beatmaps = bms;
-//     }
-
-//     resp.json(beatmapsets.filter((x) => x.beatmaps && x.beatmaps[0]));
-//   } catch (err) {
-//     console.log(err);
-//     resp.json({ error: err });
-//   }
-// });
 
 server.get("/getBeatmapsetsForYear", async (req, resp) => {
   //try to login the user
@@ -114,7 +59,17 @@ server.get("/getBeatmapsetsForYear", async (req, resp) => {
       .where("ranked_date", "<", `${endYear}-${endMonth}-01T00:00:00Z`)
       .join("beatmaps", "beatmaps.beatmapset_id", "beatmapsets.id")
       .where("beatmaps.mode", "=", req.query.gamemode ?? "osu")
-      .select();
+      .select(
+        "beatmaps.id",
+        "beatmaps.beatmapset_id",
+        "beatmaps.version",
+        "beatmaps.accuracy",
+        "beatmaps.convert",
+        "beatmaps.convert",
+        "beatmaps.url",
+        "beatmaps.ranked",
+        "beatmaps.mode"
+      );
 
     if (!beatmaps || !beatmaps[0]) {
       resp.json();
@@ -130,13 +85,23 @@ server.get("/getBeatmapsetsForYear", async (req, resp) => {
     const beatmapsets = await db("beatmapsets")
       .where("ranked_date", ">=", `${year}-${month}-01T00:00:00Z`)
       .where("ranked_date", "<", `${endYear}-${endMonth}-01T00:00:00Z`)
-      .select();
+      .select("id", "artist", "status", "title", "ranked_date");
 
     for await (const beatmapset of beatmapsets) {
       beatmapset.beatmaps = beatmapsArrays[beatmapset.id];
     }
 
-    resp.json(beatmapsets.filter((x) => x.beatmaps && x.beatmaps[0]));
+    const resultsBeatmapsets = beatmapsets
+      .filter((x) => x.beatmaps && x.beatmaps[0])
+      .sort((a, b) =>
+        a.ranked_date < b.ranked_date
+          ? -1
+          : a.ranked_date > b.ranked_date
+          ? 1
+          : 0
+      );
+
+    resp.json(resultsBeatmapsets);
     // resp.json(beatmapsArrays);
   } catch (err) {
     console.log(err);
@@ -150,7 +115,17 @@ server.get("/getAllBeatmapsets", async (req, resp) => {
     const beatmaps = await db("beatmapsets")
       .join("beatmaps", "beatmaps.beatmapset_id", "beatmapsets.id")
       .where("beatmaps.mode", "=", req.query.gamemode ?? "osu")
-      .select();
+      .select(
+        "beatmaps.id",
+        "beatmaps.beatmapset_id",
+        "beatmaps.version",
+        "beatmaps.accuracy",
+        "beatmaps.convert",
+        "beatmaps.convert",
+        "beatmaps.url",
+        "beatmaps.ranked",
+        "beatmaps.mode"
+      );
 
     if (!beatmaps || !beatmaps[0]) {
       resp.json();
@@ -163,16 +138,19 @@ server.get("/getAllBeatmapsets", async (req, resp) => {
       return r;
     }, {});
 
-    // console.log(beatmapsArrays);
-
-    const beatmapsets = await db("beatmapsets").select();
+    const beatmapsets = await db("beatmapsets").select(
+      "id",
+      "artist",
+      "status",
+      "title",
+      "ranked_date"
+    );
 
     for await (const beatmapset of beatmapsets) {
       beatmapset.beatmaps = beatmapsArrays[beatmapset.id];
     }
 
     resp.json(beatmapsets.filter((x) => x.beatmaps && x.beatmaps[0]));
-    // resp.json(beatmapsArrays);
   } catch (err) {
     console.log(err);
     resp.json({ error: err });
@@ -196,12 +174,19 @@ server.post("/getUserScoresOnBeatmaps", async (req, resp) => {
     }, {});
 
     const user_scores = await db("user_scores")
-      .select()
+      .select(
+        "id",
+        "accuracy",
+        "created_at",
+        "beatmapset_id",
+        "beatmap_id",
+        "rank",
+        "statistics_count_miss"
+      )
       .where("user_id", "=", req.query.userId)
       .where("mode", "=", req.query.gamemode ?? "osu");
 
     const beatmapsIds = req.body.beatmapsIds;
-    // console.log(beatmapsIds);
 
     const user_scores2 = user_scores.filter((x) =>
       beatmapsIds.some((y) => y === x.beatmap_id)
@@ -231,7 +216,9 @@ server.get("/getUserCompletion", async (req, resp) => {
 
     const beatmapByYear = {};
 
-    for (let i = 2007; i < 2024; i++) {
+    const year = new Date().getFullYear();
+
+    for (let i = 2007; i <= year; i++) {
       beatmapByYear[i] = beatmaps.filter(
         (x) =>
           x.ranked_date >= `${i}-01-01T00:00:00Z` &&
@@ -246,14 +233,14 @@ server.get("/getUserCompletion", async (req, resp) => {
 
     const completionByYearCount = {};
 
-    for (let i = 2007; i < 2024; i++) {
+    for (let i = 2007; i <= year; i++) {
       completionByYearCount[i] = {};
       completionByYearCount[i].completed = beatmapByYear[i].filter((x) =>
         user_scores.some((y) => y.beatmap_id === x.id)
       ).length;
     }
 
-    for (let i = 2007; i < 2024; i++) {
+    for (let i = 2007; i <= year; i++) {
       completionByYearCount[i].total = beatmaps.filter(
         (x) =>
           x.ranked_date >= `${i}-01-01T00:00:00Z` &&
@@ -287,7 +274,15 @@ server.get("/getAllUserScores", async (req, resp) => {
     }, {});
 
     const user_scores = await db("user_scores")
-      .select()
+      .select(
+        "id",
+        "accuracy",
+        "created_at",
+        "beatmapset_id",
+        "beatmap_id",
+        "rank",
+        "statistics_count_miss"
+      )
       .where("user_id", "=", req.query.userId)
       .where("mode", "=", req.query.gamemode ?? "osu");
 
@@ -315,20 +310,12 @@ server.post("/insertUserScores", async (req, resp) => {
       });
     }
 
-    // console.log(await db("scores_mods").select());
-
     resp.json("SUCCESS");
   } catch (err) {
     console.log(err);
     resp.json({ error: err });
   }
 });
-
-// const addBeatmaps = async (beatmaps) => {
-//   for await (const beatmap of beatmapset) {
-
-//   }
-// };
 
 server.post("/insertBeatmapsets", async (req, resp) => {
   const beatmapsets = req.body;
@@ -350,14 +337,34 @@ server.post("/insertBeatmapsets", async (req, resp) => {
   }
 });
 
-server.get("/getBeatmapTest", async (req, resp) => {
+server.post("/insertBeatmapset", async (req, resp) => {
+  const beatmapset = req.body;
+  try {
+    var beatmaps = [];
+    beatmaps.push(...beatmapset.beatmaps);
+    delete beatmapset.beatmaps;
+    await db("beatmaps")
+      .insert([...beatmaps])
+      .onConflict("id")
+      .merge();
+    await db("beatmapsets").insert(beatmapset).onConflict("id").merge();
+    resp.json("SUCCESS");
+  } catch (err) {
+    console.log(err);
+    resp.json({ error: err });
+  }
+});
+
+server.get("/getBeatmapsets", async (req, resp) => {
   try {
     const authToken = req.query.authTokenString;
     const cursor_string = req.query.cursorString;
     const response = await fetch(
       cursor_string === null
-        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc"
-        : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&cursor_string=${cursor_string}`,
+        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked"
+        : `https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked&cursor_string=${cursor_string}`,
+      //   "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked"
+      // : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked&cursor_string=${cursor_string}`,
       {
         method: "GET",
         headers: {
@@ -367,7 +374,52 @@ server.get("/getBeatmapTest", async (req, resp) => {
         },
       }
     );
-    // console.log(response.headers.get("x-ratelimit-remaining"));
+
+    const respJson = await response.json();
+    const fetchedBeatmapsetsIds = respJson.beatmapsets.map((x) => x.id);
+
+    var overlapCount = await db("beatmapsets")
+      .whereIn("id", fetchedBeatmapsetsIds)
+      .count();
+
+    console.log();
+
+    resp.json({
+      response: respJson,
+      ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
+      overlapCount: overlapCount[0]["count(*)"] ?? 0,
+    });
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
+server.get("/getAllBeatmapsetsIdsFromDb", async (req, resp) => {
+  try {
+    const response = await db("beatmapsets").select("id");
+
+    resp.json(response.map((x) => x.id));
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
+server.get("/fetchBeatmapsetById", async (req, resp) => {
+  try {
+    const authToken = req.query.authTokenString;
+    const beatmapsetId = req.query.beatmapsetId;
+    const response = await fetch(
+      `https://osu.ppy.sh/api/v2/beatmapsets/${beatmapsetId}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+
     resp.json({
       response: await response.json(),
       ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
@@ -401,6 +453,66 @@ server.get("/getUserScoreOnBeatmap", async (req, resp) => {
       ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
     });
     // console.log(response.headers.get("x-ratelimit-remaining"));
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
+server.get("/getToken", async (req, resp) => {
+  try {
+    const code = req.query.code;
+    const returnUrl = req.query.returnUrl ?? "http://localhost:3000";
+    const response = await fetch("https://osu.ppy.sh/oauth/token", {
+      method: "POST",
+      body: new URLSearchParams({
+        client_id: "30207",
+        client_secret: "MEZAoG94qa89hiwwtUicU66qx7yxNfbOAhpErLOK",
+        code: code,
+        grant_type: "authorization_code",
+        redirect_uri: returnUrl,
+        scope: "public",
+      }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    resp.json(await response?.json());
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
+server.get("/getAllUserScoresOnBeatmap", async (req, resp) => {
+  try {
+    const beatmapId = req.query.beatmapId;
+    const userId = req.query.userId;
+    const authToken = req.query.authTokenString;
+    const response = await fetch(
+      `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}/scores/users/${userId}/all?mode=${
+        req.query.gamemode ?? "osu"
+      }`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+
+    var beatmap = await db("beatmaps")
+      .select("id", "beatmapset_id")
+      .where("id", "=", beatmapId);
+
+    const respJson = await response?.json();
+    respJson["beatmap"] = beatmap;
+
+    resp.json({
+      response: respJson,
+      ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
+    });
   } catch (err) {
     resp.json({ error: err });
   }

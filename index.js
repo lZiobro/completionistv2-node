@@ -368,8 +368,8 @@ server.get("/getBeatmapsets", async (req, resp) => {
     const cursor_string = req.query.cursorString;
     const response = await fetch(
       cursor_string === null
-        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked"
-        : `https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked&cursor_string=${cursor_string}`,
+        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked"
+        : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked&cursor_string=${cursor_string}`,
       //   "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked"
       // : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked&cursor_string=${cursor_string}`,
       {
@@ -389,12 +389,18 @@ server.get("/getBeatmapsets", async (req, resp) => {
       .whereIn("id", fetchedBeatmapsetsIds)
       .count();
 
-    console.log();
+    // console.log("dupa");
+    // console.log(overlapCount[count]);
+
+    //sqlite3 ver
+    const overlapCountCount = overlapCount[0]["count(*)"];
+    //postgres ver
+    // const overlapCountCount = overlapCount[0]?.count;
 
     resp.json({
       response: respJson,
       ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
-      overlapCount: overlapCount[0]["count(*)"] ?? 0,
+      overlapCount: overlapCountCount ?? 0,
     });
   } catch (err) {
     resp.json({ error: err });
@@ -525,8 +531,10 @@ server.get("/getAllUserScoresOnBeatmap", async (req, resp) => {
   }
 });
 
-const HOST = process?.env?.VERCEL_URL || "localhost";
-const PORT = process?.env?.PORT || 80;
+const HOST = "localhost";
+const PORT = process?.env?.PORT || 21727;
 
-server.listen(PORT, () => console.log(`Server running at ${HOST}:${PORT}`));
+server.listen(PORT, HOST, () =>
+  console.log(`Server running at ${HOST}:${PORT}`)
+);
 module.exports = server;

@@ -55,7 +55,7 @@ exports.up = async (knex) => {
     table.integer("passcount");
     table.integer("playcount");
     table.string("url");
-    table.boolean("ranked");
+    table.boolean("ranked"); //actually a number
     table.string("status");
     //then a list of beatmaps in a set
   });

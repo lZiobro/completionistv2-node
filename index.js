@@ -368,8 +368,8 @@ server.get("/getBeatmapsets", async (req, resp) => {
     const cursor_string = req.query.cursorString;
     const response = await fetch(
       cursor_string === null
-        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked"
-        : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked&cursor_string=${cursor_string}`,
+        ? "https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked"
+        : `https://osu.ppy.sh/api/v2/beatmapsets/search?s=ranked&cursor_string=${cursor_string}`,
       //   "https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked"
       // : `https://osu.ppy.sh/api/v2/beatmapsets/search?sort=ranked_asc&s=ranked&cursor_string=${cursor_string}`,
       {

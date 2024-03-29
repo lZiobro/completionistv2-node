@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
+const fs = require('fs');
+const http = require("http")
+const https = require("https")
 
 const db = require("./db/dbConfig");
 
@@ -9,7 +12,7 @@ const server = express();
 server.use(bodyParser.json({ limit: "350mb" }));
 server.use(
   cors({
-    origin: "*",
+    origin: "https://lziobro.github.io",
     methods: "*",
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -531,10 +534,37 @@ server.get("/getAllUserScoresOnBeatmap", async (req, resp) => {
   }
 });
 
-const HOST = "localhost";
-const PORT = process?.env?.PORT || 21727;
+server.get("/getUserId", async (req, resp) => {
+  try {
+    const authToken = req.query.authTokenString;
+    const response = await fetch(`https://osu.ppy.sh/api/v2/me`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
 
-server.listen(PORT, HOST, () =>
-  console.log(`Server running at ${HOST}:${PORT}`)
-);
-module.exports = server;
+    const respJson = await response?.json();
+    const userId = respJson.id;
+    resp.json(userId);
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
+const HOST = "0.0.0.0";
+const PORT = 21727;
+
+const privateKey  = fs.readFileSync('../cert/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('../cert/fullchain.pem', 'utf8');
+const credentials = {key: privateKey, cert: certificate};
+
+const httpServer = http.createServer(server);
+const httpsServer = https.createServer(credentials, server);
+
+httpServer.listen(8080);
+httpsServer.listen(8443);
+module.exports = httpsServer;
+

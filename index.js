@@ -2,9 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
-const fs = require('fs');
-const http = require("http")
-const https = require("https")
+const fs = require("fs");
+const http = require("http");
+const https = require("https");
 
 const db = require("./db/dbConfig");
 
@@ -474,6 +474,60 @@ server.get("/getUserScoreOnBeatmap", async (req, resp) => {
   }
 });
 
+server.get("/fetchUserScoresOnBeatmaps", async (req, resp) => {
+  try {
+    const beatmapId = req.query.beatmapId;
+    //TODO
+    const beatmapsIds = req.query.beatmapsIds;
+    const userId = req.query.userId;
+    const authToken = req.query.authTokenString;
+    const scores = [];
+
+    for (const bId in beatmapsIds) {
+      //add x-ratelimit-remaining check to timeout if too many requests are made in quick succesion
+      //timeout
+
+      const response = await fetch(
+        `https://osu.ppy.sh/api/v2/beatmaps/${bId}/scores/users/${userId}?mode=${
+          req.query.gamemode ?? "osu"
+        }`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      //if score is okay, add to scores array
+      scores.push(respsonse);
+    }
+
+    const response = await fetch(
+      `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}/scores/users/${userId}?mode=${
+        req.query.gamemode ?? "osu"
+      }`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    );
+    resp.json({
+      response: await response?.json(),
+      ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
+    });
+    // console.log(response.headers.get("x-ratelimit-remaining"));
+  } catch (err) {
+    resp.json({ error: err });
+  }
+});
+
 server.get("/getToken", async (req, resp) => {
   try {
     const code = req.query.code;
@@ -557,9 +611,9 @@ server.get("/getUserId", async (req, resp) => {
 const HOST = "0.0.0.0";
 const PORT = 21727;
 
-const privateKey  = fs.readFileSync('../cert/privkey.pem', 'utf8');
-const certificate = fs.readFileSync('../cert/fullchain.pem', 'utf8');
-const credentials = {key: privateKey, cert: certificate};
+const privateKey = fs.readFileSync("../cert/privkey.pem", "utf8");
+const certificate = fs.readFileSync("../cert/fullchain.pem", "utf8");
+const credentials = { key: privateKey, cert: certificate };
 
 const httpServer = http.createServer(server);
 const httpsServer = https.createServer(credentials, server);
@@ -567,4 +621,3 @@ const httpsServer = https.createServer(credentials, server);
 httpServer.listen(8080);
 httpsServer.listen(8443);
 module.exports = httpsServer;
-

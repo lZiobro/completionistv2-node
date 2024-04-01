@@ -474,54 +474,57 @@ server.get("/getUserScoreOnBeatmap", async (req, resp) => {
   }
 });
 
-server.get("/fetchUserScoresOnBeatmaps", async (req, resp) => {
+server.post("/fetchUserScoresOnBeatmaps", async (req, resp) => {
   try {
-    const beatmapId = req.query.beatmapId;
     //TODO
-    const beatmapsIds = req.query.beatmapsIds;
-    const userId = req.query.userId;
-    const authToken = req.query.authTokenString;
+    const beatmapsIds = req.body.beatmapsIds;
+    const userId = req.body.userId;
+    const authToken = req.body.authTokenString;
+    const gamemode = req.body.gamemode ?? "osu";
     const scores = [];
+    const promiseArray = [];
 
-    for (const bId in beatmapsIds) {
+    for (const bId of beatmapsIds) {
       //add x-ratelimit-remaining check to timeout if too many requests are made in quick succesion
       //timeout
-
-      const response = await fetch(
-        `https://osu.ppy.sh/api/v2/beatmaps/${bId}/scores/users/${userId}?mode=${
-          req.query.gamemode ?? "osu"
-        }`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
+      promiseArray.push(
+        fetch(
+          `https://osu.ppy.sh/api/v2/beatmaps/${bId}/scores/users/${userId}/all?mode=${gamemode}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        )
       );
+    }
+    const results = await Promise.all(promiseArray);
 
-      //if score is okay, add to scores array
-      scores.push(respsonse);
+    const rateLimitRemaining = results
+      .reduce((prev, curr) => {
+        return prev.headers.get("x-ratelimit-remaining") <
+          curr.headers.get("x-ratelimit-remaining")
+          ? prev
+          : curr;
+      })
+      .headers.get("x-ratelimit-remaining");
+
+    let counter = 0;
+    for (const response of results) {
+      const beatmap = await db("beatmaps")
+        .select("id", "beatmapset_id")
+        .where("id", "=", beatmapsIds[counter]);
+      counter += 1;
+
+      const respJson = await response?.json();
+      respJson["beatmap"] = beatmap;
+      scores.push(respJson);
     }
 
-    const response = await fetch(
-      `https://osu.ppy.sh/api/v2/beatmaps/${beatmapId}/scores/users/${userId}?mode=${
-        req.query.gamemode ?? "osu"
-      }`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      }
-    );
-    resp.json({
-      response: await response?.json(),
-      ratelimitRemaining: response.headers.get("x-ratelimit-remaining"),
-    });
+    resp.json({ results: scores, ratelimitRemaining: rateLimitRemaining });
     // console.log(response.headers.get("x-ratelimit-remaining"));
   } catch (err) {
     resp.json({ error: err });
@@ -614,6 +617,9 @@ const PORT = 21727;
 const privateKey = fs.readFileSync("../cert/privkey.pem", "utf8");
 const certificate = fs.readFileSync("../cert/fullchain.pem", "utf8");
 const credentials = { key: privateKey, cert: certificate };
+
+http.globalAgent.keepAlive = true;
+https.globalAgent.keepAlive = true;
 
 const httpServer = http.createServer(server);
 const httpsServer = https.createServer(credentials, server);
